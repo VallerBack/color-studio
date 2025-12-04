@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>全能色卡工坊 v6.1</title>
+    <!-- 引入 JSZip -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --bg: #f8fafc;
+            --text: #1e293b;
+            --border: #e2e8f0;
+            --danger: #ef4444;
+            --success: #10b981;
+        }
+
+        body {
+            font-family: "Segoe UI Emoji", "Segoe UI Symbol", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 20px;
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-bottom: 80px;
+        }
+
+        /* === 头部布局 === */
+        .header-container {
+            width: 100%;
+            max-width: 1000px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .title-group h1 { margin: 0 0 5px 0; color: #0f172a; font-size: 28px; }
+        .title-group .subtitle { color: #64748b; margin: 0; font-size: 14px; }
+
+        /* === 语言选择器 (修复版) === */
+        .lang-dropdown {
+            position: relative;
+            display: inline-block;
+            z-index: 1000; /* 提高层级 */
+        }
+        .lang-btn {
+            background: white;
+            border: 1px solid var(--border);
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            transition: all 0.2s;
+        }
+        .lang-btn:hover { border-color: var(--primary); color: var(--primary); }
+        
+        .lang-menu {
+            display: none; /* 默认隐藏 */
+            position: absolute;
+            right: 0;
+            top: 115%;
+            background-color: white;
+            min-width: 180px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            animation: fadeIn 0.2s ease;
+        }
+        /* JS控制显示 */
+        .lang-menu.show { display: block; }
+
+        .lang-menu a {
+            color: var(--text);
+            padding: 12px 16px;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            cursor: pointer;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .lang-menu a:last-child { border-bottom: none; }
+        .lang-menu a:hover { background-color: #f8fafc; color: var(--primary); }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* === 操作栏 === */
+        .action-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            background: white;
+            padding: 12px 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+            flex-wrap: wrap;
+            justify-content: center;
+            width: 100%;
+            max-width: 1000px;
+            box-sizing: border-box;
+        }
+
+        .btn { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px; transition: 0.1s; }
+        .btn:active { transform: scale(0.98); }
+        .btn-blue { background: var(--primary); color: white; } .btn-blue:hover { background: var(--primary-hover); }
+        .btn-green { background: var(--success); color: white; } .btn-green:hover { background: #059669; }
+        .btn-outline { background: white; border: 1px solid var(--border); color: #334155; } .btn-outline:hover { background: #f8fafc; border-color: #cbd5e1; }
+        .btn-red { background: #fee2e2; color: #b91c1c; } .btn-red:hover { background: #fecaca; }
+        .divider { width: 1px; background: var(--border); margin: 0 5px; }
+
+        /* === 控制面板 === */
+        .control-panel {
+            background: white; padding: 20px; border-radius: 12px; width: 100%; max-width: 1000px;
+            margin-bottom: 20px; display: flex; gap: 30px; flex-wrap: wrap; box-sizing: border-box;
+        }
+        .control-group { flex: 1; min-width: 260px; }
+        .control-label { font-weight: 700; font-size: 14px; margin-bottom: 12px; display: block; color: #334155; }
+        .slider-row { display: flex; justify-content: space-between; font-size: 13px; color: #64748b; margin-bottom: 5px; }
+        input[type=range] { width: 100%; accent-color: var(--primary); margin-bottom: 15px; height: 6px; background: #e2e8f0; border-radius: 3px; outline:none; -webkit-appearance: none; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; background: var(--primary); border-radius: 50%; cursor: pointer; }
+        
+        .tags-area { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+        .tag { background: #f1f5f9; padding: 4px 10px; border-radius: 20px; font-size: 12px; display: flex; align-items: center; gap: 6px; border: 1px solid var(--border); color: #475569; }
+        .tag-remove { cursor: pointer; color: #94a3b8; font-weight: bold; } .tag-remove:hover { color: var(--danger); }
+        .input-group { display: flex; gap: 8px; }
+        input[type="text"] { border: 1px solid var(--border); padding: 6px; border-radius: 6px; font-family: monospace; width: 80px; }
+
+        /* === 上传区 === */
+        .upload-area {
+            width: 100%; max-width: 1000px; border: 2px dashed var(--border); border-radius: 12px; padding: 40px 20px;
+            text-align: center; background: white; cursor: pointer; margin-bottom: 30px; transition: all 0.2s; box-sizing: border-box;
+        }
+        .upload-area:hover { border-color: var(--primary); background: #eef2ff; }
+
+        /* === 画廊 === */
+        .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 25px; width: 100%; max-width: 1600px; }
+        .card {
+            background: white; border-radius: 12px; padding: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+            display: flex; flex-direction: column; animation: slideUp 0.4s ease; border: 1px solid #f1f5f9;
+        }
+        @keyframes slideUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid #f3f4f6; gap: 10px; }
+        .name-input { border: 1px solid transparent; font-size: 14px; font-weight: 600; color: #334151; width: 100%; padding: 4px 8px; border-radius: 4px; background: transparent; transition: all 0.2s; }
+        .name-input:hover { background: #f8fafc; border-color: #e2e8f0; }
+        .name-input:focus { border-color: var(--primary); background: #fff; outline: none; }
+        
+        .toolbar { display: flex; gap: 4px; }
+        .tool-btn { border: 1px solid var(--border); background: white; color: #64748b; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; white-space: nowrap; transition: 0.2s; }
+        .tool-btn:hover { background: #f8fafc; color: #0f172a; border-color: #cbd5e1; }
+        .tool-btn.active { background: #e0e7ff; color: var(--primary); border-color: #c7d2fe; }
+        
+        .original-img { width: 100%; height: 160px; object-fit: cover; border-radius: 8px; margin-bottom: 15px; display: none; border: 1px solid var(--border); }
+        canvas { width: 100%; height: auto; border-radius: 8px; cursor: pointer; margin-bottom: 10px; transition: transform 0.2s; }
+        canvas:hover { transform: scale(1.01); }
+
+        /* === 回到顶部 === */
+        #backToTop {
+            position: fixed; bottom: 40px; right: 40px; width: 50px; height: 50px;
+            background-color: var(--primary); color: white; border-radius: 50%; border: none;
+            font-size: 24px; cursor: pointer; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+            display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;
+            opacity: 0; transform: translateY(20px); pointer-events: none; z-index: 999;
+        }
+        #backToTop.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
+        #backToTop:hover { background-color: var(--primary-hover); transform: translateY(-5px); }
+
+    </style>
+</head>
+<body>
+
+    <div class="header-container">
+        <div class="title-group">
+            <!-- 默认改为中文 -->
+            <h1 data-i18n="mainTitle">🎨 全能色卡工坊 v6.1</h1>
+            <p class="subtitle" data-i18n="subTitle">支持 .copa 工程文件 | 批量导出 | 标题隐藏 | 多语言</p>
+        </div>
+        
+        <!-- 语言切换器 -->
+        <div class="lang-dropdown">
+            <button class="lang-btn" onclick="toggleLangMenu(event)">
+                🌍 <span data-i18n="langLabel">语言/Language</span> ▼
+            </button>
+            <div class="lang-menu" id="langMenu">
+                <a onclick="selectLanguage('zh-CN')">🇨🇳 简体中文</a>
+                <a onclick="selectLanguage('zh-TW')">🇨🇳 繁體中文</a>
+                <a onclick="selectLanguage('en')">🇺🇸 English</a>
+                <a onclick="selectLanguage('ja')">🇯🇵 日本語</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="action-bar">
+        <button class="btn btn-blue" onclick="document.getElementById('copaInput').click()">
+            📂 <span data-i18n="btnImport">导入方案</span>
+        </button>
+        <button class="btn btn-outline" onclick="saveProject()">
+            💾 <span data-i18n="btnSave">保存方案 (.copa)</span>
+        </button>
+        <div class="divider"></div>
+        <button class="btn btn-outline" id="btnBrowse" onclick="selectExportFolder()">
+            📁 <span data-i18n="btnBrowse">浏览导出位置</span>
+        </button>
+        <button class="btn btn-green" onclick="exportAll()">
+            ⬇️ <span data-i18n="btnExport">全部导出</span>
+        </button>
+        <div class="divider"></div>
+        <button class="btn btn-red" onclick="clearAll()">
+            🗑️ <span data-i18n="btnClear">全部清空</span>
+        </button>
+        <input type="file" id="copaInput" accept=".copa" style="display:none" onchange="loadProject(this)">
+    </div>
+    
+    <div style="font-size:12px; color:#6b7280; margin-bottom:15px;" id="pathDisplay" data-i18n="pathDefault">
+        默认导出路径: 浏览器下载文件夹 (未指定文件夹)
+    </div>
+
+    <div class="control-panel">
+        <div class="control-group">
+            <span class="control-label" data-i18n="secParams">⚙️ 全局参数</span>
+            <div class="slider-row"><span data-i18n="lblCount">提取数量</span><span id="lblCount">8</span></div>
+            <input type="range" id="inCount" min="5" max="20" value="8">
+
+            <div class="slider-row"><span data-i18n="lblPct">最小占比阈值</span><span id="lblPct">0.5%</span></div>
+            <input type="range" id="inPct" min="0.1" max="20" step="0.1" value="0.5">
+        </div>
+
+        <div class="control-group">
+            <span class="control-label" data-i18n="secExclude">🚫 全局背景排除</span>
+            <div class="input-group">
+                <input type="color" id="inColorPick" value="#FFFFFF" style="height:34px; width:40px; padding:0; border:none; cursor:pointer;">
+                <input type="text" id="inColorTxt" value="#FFFFFF" maxlength="7">
+                <button class="btn btn-blue" style="padding:6px 12px;" onclick="addGlobalExclude()">
+                    <span data-i18n="btnAdd">添加</span>
+                </button>
+            </div>
+            <div class="tags-area" id="globalTags"></div>
+        </div>
+    </div>
+
+    <div class="upload-area" onclick="document.getElementById('fileInput').click()" id="dropZone">
+        <h3 style="margin:0 0 8px 0; color:#374151;" data-i18n="uploadTitle">📤 点击上传图片</h3>
+        <div style="font-size:12px; color:#9ca3af;" data-i18n="uploadDesc">支持批量 • 拖拽上传</div>
+        <input type="file" id="fileInput" multiple accept="image/*" style="display:none">
+    </div>
+
+    <div class="gallery" id="gallery"></div>
+
+    <!-- 回到顶部按钮 -->
+    <button id="backToTop" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">⬆</button>
+
+    <script>
+        // === 国际化 (i18n) 数据 ===
+        const translations = {
+            'zh-CN': {
+                mainTitle: '🎨 全能色卡工坊 v6.1',
+                subTitle: '支持 .copa 工程文件 | 批量导出 | 标题隐藏 | 多语言',
+                langLabel: '语言/Language',
+                btnImport: '导入方案',
+                btnSave: '保存方案 (.copa)',
+                btnBrowse: '浏览导出位置',
+                btnExport: '全部导出',
+                btnClear: '全部清空',
+                pathDefault: '默认导出路径: 浏览器下载文件夹 (未指定文件夹)',
+                pathSelected: '✅ 当前导出位置: ',
+                secParams: '⚙️ 全局参数',
+                lblCount: '提取数量',
+                lblPct: '最小占比阈值',
+                secExclude: '🚫 全局背景排除',
+                btnAdd: '添加',
+                uploadTitle: '📤 点击上传图片',
+                uploadDesc: '支持批量 • 拖拽上传',
+                cardOriginal: '原图',
+                cardChart: '图表',
+                cardUndo: '撤销',
+                ratio: '占比: ',
+                empty: '颜色均被排除',
+                msgEmptyExport: '没有可导出的色卡',
+                msgExportSuccess: '✅ 全部导出成功！',
+                msgClearConfirm: '⚠️ 确定要清空所有色卡吗？\n此操作无法撤销，建议先保存 .copa 方案文件。',
+                msgImportSuccess: '成功导入色卡方案',
+                msgImportError: '方案文件损坏或格式不正确',
+                tipName: '输入空格以隐藏标题'
+            },
+            'zh-TW': {
+                mainTitle: '🎨 全能色卡工坊 v6.1',
+                subTitle: '支持 .copa 工程文件 | 批量導出 | 標題隱藏 | 多語言',
+                langLabel: '語言/Language',
+                btnImport: '導入方案',
+                btnSave: '保存方案 (.copa)',
+                btnBrowse: '瀏覽導出位置',
+                btnExport: '全部導出',
+                btnClear: '全部清空',
+                pathDefault: '默認導出路徑: 瀏覽器下載文件夾 (未指定文件夾)',
+                pathSelected: '✅ 當前導出位置: ',
+                secParams: '⚙️ 全局參數',
+                lblCount: '提取數量',
+                lblPct: '最小占比閾值',
+                secExclude: '🚫 全局背景排除',
+                btnAdd: '添加',
+                uploadTitle: '📤 點擊上傳圖片',
+                uploadDesc: '支持批量 • 拖拽上傳',
+                cardOriginal: '原圖',
+                cardChart: '圖表',
+                cardUndo: '撤銷',
+                ratio: '占比: ',
+                empty: '顏色均被排除',
+                msgEmptyExport: '沒有可導出的色卡',
+                msgExportSuccess: '✅ 全部導出成功！',
+                msgClearConfirm: '⚠️ 確定要清空所有色卡嗎？\n此操作無法撤銷，建議先保存 .copa 方案文件。',
+                msgImportSuccess: '成功導入色卡方案',
+                msgImportError: '方案文件損壞或格式不正確',
+                tipName: '輸入空格以隱藏標題'
+            },
+            'en': {
+                mainTitle: '🎨 Color Studio v6.1',
+                subTitle: '.copa Project Support | Batch Export | Hide Titles | Multi-language',
+                langLabel: 'Language',
+                btnImport: 'Import Project',
+                btnSave: 'Save Project',
+                btnBrowse: 'Set Output Folder',
+                btnExport: 'Export All',
+                btnClear: 'Clear All',
+                pathDefault: 'Default Path: Browser Download Folder',
+                pathSelected: '✅ Export Path: ',
+                secParams: '⚙️ Global Settings',
+                lblCount: 'Color Count',
+                lblPct: 'Min Threshold',
+                secExclude: '🚫 Exclude Colors',
+                btnAdd: 'Add',
+                uploadTitle: '📤 Click to Upload',
+                uploadDesc: 'Batch Support • Drag & Drop',
+                cardOriginal: 'Original',
+                cardChart: 'Chart',
+                cardUndo: 'Undo',
+                ratio: 'Ratio: ',
+                empty: 'All colors excluded',
+                msgEmptyExport: 'No palettes to export',
+                msgExportSuccess: '✅ Export Successful!',
+                msgClearConfirm: '⚠️ Clear all palettes?\nThis cannot be undone.',
+                msgImportSuccess: 'Project imported successfully',
+                msgImportError: 'Invalid project file',
+                tipName: 'Type a space to hide title'
+            },
+            'ja': {
+                mainTitle: '🎨 カラースタジオ v6.1',
+                subTitle: '.copaプロジェクト対応 | 一括エクスポート | タイトル非表示 | 多言語',
+                langLabel: '言語/Language',
+                btnImport: 'インポート',
+                btnSave: '保存 (.copa)',
+                btnBrowse: '保存先を選択',
+                btnExport: '一括出力',
+                btnClear: '全消去',
+                pathDefault: 'デフォルト: ブラウザのダウンロードフォルダ',
+                pathSelected: '✅ 出力先: ',
+                secParams: '⚙️ 一般設定',
+                lblCount: '抽出数',
+                lblPct: '最小比率',
+                secExclude: '🚫 除外カラー',
+                btnAdd: '追加',
+                uploadTitle: '📤 画像をアップロード',
+                uploadDesc: '一括対応 • ドラッグ＆ドロップ',
+                cardOriginal: '元画像',
+                cardChart: 'グラフ',
+                cardUndo: '元に戻す',
+                ratio: '比率: ',
+                empty: '色がすべて除外されました',
+                msgEmptyExport: 'エクスポートするパレットがありません',
+                msgExportSuccess: '✅ エクスポート完了！',
+                msgClearConfirm: '⚠️ すべて削除しますか？\nこの操作は取り消せません。',
+                msgImportSuccess: 'インポート成功',
+                msgImportError: 'ファイルが破損しています',
+                tipName: 'スペース入力でタイトル非表示'
+            }
+        };
+
+        // === 全局状态 ===
+        const state = {
+            lang: 'zh-CN', // 默认中文
+            count: 8,
+            minPct: 0.5,
+            globalExclusions: [{ hex: '#FFFFFF', ...hexToRgb('#FFFFFF') }],
+            cards: [],
+            directoryHandle: null
+        };
+
+        // === 语言切换逻辑 (修复版) ===
+        function toggleLangMenu(e) {
+            e.stopPropagation(); // 防止冒泡立即关闭
+            document.getElementById('langMenu').classList.toggle('show');
+        }
+
+        function selectLanguage(lang) {
+            state.lang = lang;
+            const t = translations[lang];
+            
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (t[key]) el.innerText = t[key];
+            });
+
+            document.querySelectorAll('.name-input').forEach(input => {
+                input.title = t.tipName;
+            });
+
+            // 更新所有卡片
+            state.cards.forEach(c => c.render());
+
+            // 关闭菜单
+            document.getElementById('langMenu').classList.remove('show');
+        }
+
+        // 点击页面任何其他地方关闭菜单
+        window.onclick = function(e) {
+            if (!e.target.matches('.lang-btn')) {
+                const menus = document.getElementsByClassName("lang-menu");
+                for (let i = 0; i < menus.length; i++) {
+                    if (menus[i].classList.contains('show')) {
+                        menus[i].classList.remove('show');
+                    }
+                }
+            }
+        }
+
+        function getT(key) { return translations[state.lang][key] || translations['zh-CN'][key]; }
+
+        // === 初始化 ===
+        renderGlobalTags();
+        
+        // === 回到顶部 ===
+        const backToTopBtn = document.getElementById('backToTop');
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 300) {
+                backToTopBtn.classList.add('visible');
+            } else {
+                backToTopBtn.classList.remove('visible');
+            }
+        });
+
+        // === 核心类: 色卡卡片 ===
+        class PaletteCard {
+            constructor(imgSrc, filename, customName = "", localExclusions = []) {
+                this.imgSrc = imgSrc;
+                this.filename = filename;
+                this.customName = customName;
+                this.localExclusions = localExclusions;
+                this.showOriginal = false;
+                this.chartType = 'list'; 
+                
+                this.img = new Image();
+                this.img.src = imgSrc;
+                this.img.onload = () => {
+                    this.createDOM();
+                    state.cards.push(this);
+                    this.render();
+                }
+            }
+
+            createDOM() {
+                const div = document.createElement('div');
+                div.className = 'card';
+                div.innerHTML = `
+                    <div class="card-header">
+                        <input type="text" class="name-input" value="${this.customName}" placeholder="${this.filename}" title="${getT('tipName')}">
+                        <div class="toolbar">
+                            <button class="tool-btn" id="btnImg">👁️</button>
+                            <button class="tool-btn" id="btnChart">📊</button>
+                            <button class="tool-btn" id="btnUndo">↩️</button>
+                            <button class="tool-btn" id="btnDel" style="color:#ef4444">×</button>
+                        </div>
+                    </div>
+                    <img src="${this.imgSrc}" class="original-img">
+                    <canvas></canvas>
+                `;
+
+                this.container = div;
+                this.canvas = div.querySelector('canvas');
+                this.inputName = div.querySelector('.name-input');
+                this.imgPreview = div.querySelector('.original-img');
+                this.btnUndo = div.querySelector('#btnUndo');
+                
+                this.inputName.addEventListener('input', (e) => {
+                    this.customName = e.target.value;
+                    this.render(); 
+                });
+
+                div.querySelector('#btnDel').onclick = () => this.remove();
+                this.btnUndo.onclick = () => this.undo();
+                
+                div.querySelector('#btnImg').onclick = (e) => {
+                    this.showOriginal = !this.showOriginal;
+                    this.imgPreview.style.display = this.showOriginal ? 'block' : 'none';
+                    e.target.classList.toggle('active', this.showOriginal);
+                };
+
+                div.querySelector('#btnChart').onclick = (e) => {
+                    this.chartType = this.chartType === 'list' ? 'pie' : 'list';
+                    this.render();
+                    e.target.classList.toggle('active', this.chartType === 'pie');
+                };
+
+                this.canvas.addEventListener('click', e => this.handleClick(e));
+                document.getElementById('gallery').prepend(div);
+            }
+
+            remove() {
+                this.container.remove();
+                state.cards = state.cards.filter(c => c !== this);
+            }
+
+            undo() {
+                if(this.localExclusions.length > 0) {
+                    this.localExclusions.pop();
+                    this.render();
+                }
+            }
+
+            handleClick(e) {
+                if(!this.currentColors || !this.currentColors.length) return;
+                const rect = this.canvas.getBoundingClientRect();
+                const y = (e.clientY - rect.top) * (this.canvas.width / rect.width);
+                
+                const shouldShowTitle = this.customName !== ' ';
+                const headH = shouldShowTitle ? 40 : 0;
+
+                if (y < headH) return;
+                const contentY = y - headH;
+                let idx = -1;
+
+                if (this.chartType === 'list') {
+                    idx = Math.floor(contentY / 50);
+                } else {
+                    if (contentY > 320) idx = Math.floor((contentY - 320) / 40);
+                }
+
+                if (idx >= 0 && idx < this.currentColors.length) {
+                    const c = this.currentColors[idx];
+                    this.localExclusions.push({ hex: c.hex, ...hexToRgb(c.hex) });
+                    this.render();
+                }
+            }
+
+            getDisplayName() {
+                return this.customName.trim() || this.filename;
+            }
+
+            render() {
+                const allEx = [...state.globalExclusions, ...this.localExclusions];
+                this.currentColors = getDominantColors(this.img, state.count, state.minPct, allEx);
+                this.btnUndo.style.opacity = this.localExclusions.length > 0 ? '1' : '0.3';
+                if (this.chartType === 'list') this.renderList(this.currentColors);
+                else this.renderPie(this.currentColors);
+            }
+
+            renderList(colors) {
+                const ctx = this.canvas.getContext('2d');
+                const w = 400, rowH = 50;
+                const shouldShowTitle = this.customName !== ' ';
+                const headH = shouldShowTitle ? 40 : 0;
+                const h = Math.max(100, colors.length * rowH) + headH;
+
+                this.canvas.width = w; this.canvas.height = h;
+                ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h);
+
+                if (shouldShowTitle) {
+                    ctx.fillStyle = '#111827'; ctx.font = 'bold 18px sans-serif';
+                    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    ctx.fillText(this.getDisplayName(), w/2, headH/2);
+                }
+
+                if(colors.length === 0) { this.drawEmpty(ctx, w, h); return; }
+
+                colors.forEach((c, i) => {
+                    const y = headH + i * rowH;
+                    ctx.fillStyle = c.hex; ctx.fillRect(0, y, w * 0.4, rowH);
+                    ctx.fillStyle = '#1f2937'; ctx.font = 'bold 16px monospace'; ctx.textAlign = 'left';
+                    ctx.fillText(c.hex, w * 0.45, y + rowH/2 - 8);
+                    ctx.fillStyle = '#6b7280'; ctx.font = '14px sans-serif';
+                    ctx.fillText(`${getT('ratio')}${c.percentage}`, w * 0.45, y + rowH/2 + 12);
+                });
+            }
+
+            renderPie(colors) {
+                const ctx = this.canvas.getContext('2d');
+                const shouldShowTitle = this.customName !== ' ';
+                const headH = shouldShowTitle ? 40 : 0;
+                const w = 400, pieH = 320, legendRowH = 40;
+                const h = pieH + (colors.length * legendRowH) + headH;
+
+                this.canvas.width = w; this.canvas.height = h;
+                ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h);
+
+                if (shouldShowTitle) {
+                    ctx.fillStyle = '#111827'; ctx.font = 'bold 18px sans-serif';
+                    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    ctx.fillText(this.getDisplayName(), w/2, headH/2);
+                }
+
+                if(colors.length === 0) { this.drawEmpty(ctx, w, h); return; }
+
+                const cx = w/2, cy = headH + pieH/2, r = 120;
+                let start = 0;
+                const totalPct = colors.reduce((s, c) => s + c.rawPct, 0);
+
+                colors.forEach(c => {
+                    const ang = (c.rawPct / totalPct) * 2 * Math.PI;
+                    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, r, start, start+ang);
+                    ctx.fillStyle = c.hex; ctx.fill(); ctx.strokeStyle='#fff'; ctx.stroke();
+                    start += ang;
+                });
+                ctx.beginPath(); ctx.arc(cx, cy, r*0.5, 0, 2*Math.PI); ctx.fillStyle='#fff'; ctx.fill();
+
+                colors.forEach((c, i) => {
+                    const y = headH + pieH + (i * legendRowH);
+                    ctx.fillStyle = c.hex; ctx.fillRect(40, y+10, 20, 20);
+                    ctx.fillStyle = '#374151'; ctx.font = 'bold 14px monospace'; ctx.textAlign = 'left';
+                    ctx.fillText(c.hex, 75, y+25);
+                    ctx.fillStyle = '#f3f4f6'; ctx.fillRect(180, y+14, 150, 12);
+                    ctx.fillStyle = c.hex; ctx.fillRect(180, y+14, 150*(c.rawPct/50), 12);
+                    ctx.fillStyle = '#6b7280'; ctx.textAlign='right'; ctx.fillText(c.percentage, 380, y+25);
+                });
+            }
+
+            drawEmpty(ctx, w, h) {
+                ctx.fillStyle = '#9ca3af'; ctx.font = '16px sans-serif'; ctx.textAlign='center';
+                ctx.fillText(getT('empty'), w/2, h/2 + 20);
+            }
+        }
+
+        // === 设置面板逻辑 ===
+        const inCount = document.getElementById('inCount');
+        const inPct = document.getElementById('inPct');
+        function updateSettings() {
+            state.count = parseInt(inCount.value);
+            state.minPct = parseFloat(inPct.value);
+            document.getElementById('lblCount').textContent = state.count;
+            document.getElementById('lblPct').textContent = state.minPct + '%';
+            state.cards.forEach(c => c.render());
+        }
+        inCount.addEventListener('input', updateSettings);
+        inPct.addEventListener('input', updateSettings);
+
+        const inColorPick = document.getElementById('inColorPick');
+        const inColorTxt = document.getElementById('inColorTxt');
+        inColorPick.addEventListener('input', e => inColorTxt.value = e.target.value.toUpperCase());
+        function addGlobalExclude() {
+            const hex = inColorTxt.value.toUpperCase();
+            if(!/^#[0-9A-Fa-f]{6}$/.test(hex)) return;
+            if(!state.globalExclusions.some(c => c.hex === hex)) {
+                state.globalExclusions.push({hex, ...hexToRgb(hex)});
+                renderGlobalTags();
+                state.cards.forEach(c => c.render());
+            }
+        }
+        function removeGlobal(hex) {
+            state.globalExclusions = state.globalExclusions.filter(c => c.hex !== hex);
+            renderGlobalTags();
+            state.cards.forEach(c => c.render());
+        }
+        function renderGlobalTags() {
+            document.getElementById('globalTags').innerHTML = state.globalExclusions.map(c => `
+                <div class="tag"><span style="background:${c.hex};width:8px;height:8px;border-radius:50%;border:1px solid #ddd"></span>${c.hex}<span class="tag-remove" onclick="removeGlobal('${c.hex}')">×</span></div>
+            `).join('');
+        }
+
+        // === 导出与功能 ===
+        async function selectExportFolder() {
+            if (!('showDirectoryPicker' in window)) { alert("Browser not supported. Falling back to ZIP download."); return; }
+            try {
+                state.directoryHandle = await window.showDirectoryPicker();
+                document.getElementById('pathDisplay').innerText = getT('pathSelected') + state.directoryHandle.name;
+                document.getElementById('pathDisplay').style.color = "#10b981";
+            } catch (err) { console.log(err); }
+        }
+
+        async function exportAll() {
+            if (state.cards.length === 0) return alert(getT('msgEmptyExport'));
+            try {
+                if (state.directoryHandle) {
+                    for (let card of state.cards) {
+                        const blob = await new Promise(resolve => card.canvas.toBlob(resolve, 'image/png'));
+                        const nameStr = card.customName === ' ' ? card.filename.split('.')[0] : card.getDisplayName();
+                        const name = cleanFileName(nameStr) + '.png';
+                        const fileHandle = await state.directoryHandle.getFileHandle(name, { create: true });
+                        const writable = await fileHandle.createWritable();
+                        await writable.write(blob);
+                        await writable.close();
+                    }
+                    alert(getT('msgExportSuccess'));
+                } else {
+                    const zip = new JSZip();
+                    for (let card of state.cards) {
+                        const dataUrl = card.canvas.toDataURL('image/png');
+                        const nameStr = card.customName === ' ' ? card.filename.split('.')[0] : card.getDisplayName();
+                        zip.file(`${cleanFileName(nameStr)}.png`, dataUrl.split(',')[1], {base64: true});
+                    }
+                    const content = await zip.generateAsync({type:"blob"});
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(content);
+                    link.download = "palettes.zip";
+                    link.click();
+                }
+            } catch (err) { alert("Export Error: " + err.message); }
+        }
+
+        function clearAll() {
+            if (state.cards.length === 0) return;
+            if (confirm(getT('msgClearConfirm'))) {
+                document.getElementById('gallery').innerHTML = '';
+                state.cards = [];
+            }
+        }
+
+        function saveProject() {
+            if (state.cards.length === 0) return alert(getT('msgEmptyExport'));
+            const projectData = {
+                version: "6.1",
+                timestamp: Date.now(),
+                settings: { count: state.count, minPct: state.minPct, globalExclusions: state.globalExclusions },
+                cards: state.cards.map(c => ({ imgSrc: c.imgSrc, filename: c.filename, customName: c.customName, localExclusions: c.localExclusions }))
+            };
+            const blob = new Blob([JSON.stringify(projectData)], {type: "application/json"});
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `project_${new Date().toISOString().slice(0,10)}.copa`;
+            link.click();
+        }
+
+        function loadProject(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if(data.settings) {
+                        state.count = data.settings.count;
+                        state.minPct = data.settings.minPct;
+                        state.globalExclusions = data.settings.globalExclusions;
+                        document.getElementById('inCount').value = state.count;
+                        document.getElementById('inPct').value = state.minPct;
+                        updateSettings();
+                        renderGlobalTags();
+                    }
+                    if(data.cards) {
+                        if(state.cards.length > 0) { document.getElementById('gallery').innerHTML = ''; state.cards = []; }
+                        data.cards.forEach(c => new PaletteCard(c.imgSrc, c.filename, c.customName, c.localExclusions));
+                    }
+                    alert(getT('msgImportSuccess'));
+                } catch (err) { alert(getT('msgImportError')); }
+            };
+            reader.readAsText(file);
+            input.value = '';
+        }
+
+        // === 辅助函数 ===
+        function cleanFileName(name) { return name.replace(/[^a-z0-9\u4e00-\u9fa5_\-\.]/gi, '_'); }
+        function rgbToHex(r,g,b) { return "#" + ((1<<24)+(r<<16)+(g<<8)+b).toString(16).slice(1).toUpperCase(); }
+        function hexToRgb(hex) { const n = parseInt(hex.replace('#',''), 16); return { r:(n>>16)&255, g:(n>>8)&255, b:n&255 }; }
+        
+        function getDominantColors(img, maxCount, minPct, exclusions) {
+            const cvs = document.createElement('canvas');
+            const ctx = cvs.getContext('2d');
+            const scale = Math.min(1, 150 / Math.min(img.width, img.height));
+            cvs.width = img.width * scale; cvs.height = img.height * scale;
+            ctx.drawImage(img, 0, 0, cvs.width, cvs.height);
+            const data = ctx.getImageData(0,0,cvs.width,cvs.height).data;
+            const map = {};
+            let total = 0;
+            for(let i=0; i<data.length; i+=16) {
+                const r=data[i], g=data[i+1], b=data[i+2], a=data[i+3];
+                if(a<128) continue;
+                let skip = false;
+                for(let ex of exclusions) {
+                    if(Math.sqrt((r-ex.r)**2 + (g-ex.g)**2 + (b-ex.b)**2) < 30) { skip=true; break; }
+                }
+                if(skip) continue;
+                total++;
+                const q = 20;
+                const key = `${Math.round(r/q)*q},${Math.round(g/q)*q},${Math.round(b/q)*q}`;
+                if(!map[key]) map[key] = {c:0, r:Math.round(r/q)*q, g:Math.round(g/q)*q, b:Math.round(b/q)*q};
+                map[key].c++;
+            }
+            return Object.values(map).map(o => {
+                const p = (o.c/total)*100;
+                return { hex: rgbToHex(o.r, o.g, o.b), rawPct: p, percentage: p.toFixed(1)+'%' };
+            }).sort((a,b)=>b.rawPct-a.rawPct).filter(i=>i.rawPct>=minPct).slice(0, maxCount);
+        }
+
+        // === 上传入口 ===
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        dropZone.ondragover = e => { e.preventDefault(); dropZone.style.borderColor = '#4f46e5'; };
+        dropZone.ondragleave = e => { e.preventDefault(); dropZone.style.borderColor = '#e2e8f0'; };
+        dropZone.ondrop = e => { e.preventDefault(); dropZone.style.borderColor = '#e2e8f0'; handleFiles(e.dataTransfer.files); };
+        fileInput.onchange = e => handleFiles(e.target.files);
+
+        function handleFiles(files) {
+            Array.from(files).forEach(f => {
+                if(f.type.startsWith('image/')) {
+                    const r = new FileReader();
+                    r.onload = e => new PaletteCard(e.target.result, f.name);
+                    r.readAsDataURL(f);
+                }
+            });
+            fileInput.value = '';
+        }
+    </script>
+</body>
+</html>
